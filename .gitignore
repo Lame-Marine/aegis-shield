@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+logs/
+build/
+*.pcap
+*.bak
+*.conf
+config/private/
+config/*.json
+.env

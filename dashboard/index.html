@@ -1,0 +1,63 @@
+<!doctype html><meta charset="utf-8"><title>Aegis territory map</title>
+<style>
+body{margin:0;background:#14161a;color:#ddd;font:13px system-ui;display:flex;height:100vh}
+#side{width:300px;padding:12px;overflow:auto;border-right:1px solid #333;box-sizing:border-box}
+#wrap{flex:1;display:flex;align-items:center;justify-content:center}
+canvas{background:#0d0f12;cursor:crosshair}
+label{display:block;margin:8px 0 2px}input[type=range]{width:100%}
+input[type=text],select{width:100%;box-sizing:border-box;background:#222;color:#ddd;border:1px solid #444;padding:3px}
+#res{margin-top:12px;padding:8px;background:#1d2026;border-radius:4px;white-space:pre-wrap}
+h3{margin:10px 0 4px}small{color:#889}
+</style>
+<div id="side">
+<b>Territory model</b> <small id="meta"></small>
+<label>Cluster gap (eps) <span id="v_eps"></span> tiles</label><input id="eps" type="range" min="3" max="40" step="1">
+<label>Min members per cluster <span id="v_min_pts"></span></label><input id="min_pts" type="range" min="2" max="10" step="1">
+<label>Hull margin <span id="v_margin"></span> tiles</label><input id="margin" type="range" min="0" max="20" step="1">
+<label>Near cutoff <span id="v_cutoff"></span> tiles</label><input id="cutoff" type="range" min="0" max="60" step="1">
+<label>Highlight alliance</label><input type="text" id="hl" placeholder="tag, e.g. Meow (blank = all)">
+<label><input type="checkbox" id="showc" checked> city dots</label>
+<label><input type="checkbox" id="showh" checked> territories</label>
+<label>Pin at x,y (or click the map)</label><input type="text" id="xy" placeholder="500,500">
+<div id="res">Click the map to drop a pin.</div>
+<h3>Largest territories</h3><div id="top"></div>
+</div>
+<div id="wrap"><canvas id="c" width="900" height="900"></canvas></div>
+<script>
+const C=document.getElementById('c'),g=C.getContext('2d'),S=900/1000;
+let D,T=[],pin=null,P={};
+const ids=['eps','min_pts','margin','cutoff'];
+const col=t=>{let h=0;for(const ch of t)h=(h*31+ch.charCodeAt(0))%360;return h};
+const q=()=>ids.map(i=>i+'='+P[i]).join('&');
+async function load(){D=await (await fetch('/api/data')).json();P={...D.defaults};
+ ids.forEach(i=>{const e=document.getElementById(i);e.value=P[i];document.getElementById('v_'+i).textContent=P[i];
+  e.oninput=()=>{P[i]=+e.value;document.getElementById('v_'+i).textContent=P[i];refresh()}});
+ document.getElementById('meta').textContent='sweep '+D.taken+', '+D.cities.length+' cities';
+ ['hl','showc','showh'].forEach(i=>document.getElementById(i).oninput=draw);
+ document.getElementById('xy').onchange=e=>{const m=e.target.value.match(/(-?\d+)\D+(-?\d+)/);if(m)place(+m[1],+m[2])};
+ refresh()}
+let tmr;function refresh(){clearTimeout(tmr);tmr=setTimeout(async()=>{T=await (await fetch('/api/territories?'+q())).json();
+ const top=[...T].sort((a,b)=>b.n-a.n).slice(0,12).map(t=>'['+t.tag+'] '+t.n+' members, hull '+t.hull.length+' pts').join('\n');
+ document.getElementById('top').textContent=T.length+' territories\n'+top;
+ draw();if(pin)place(pin[0],pin[1])},120)}
+function draw(){g.clearRect(0,0,900,900);const hl=document.getElementById('hl').value.trim().toLowerCase();
+ const X=x=>x*S,Y=y=>(1000-y)*S;
+ if(document.getElementById('showc').checked)for(const[x,y,t]of D.cities){const on=t&&(!hl||t.toLowerCase()==hl);
+  g.fillStyle=!t?'#2c3038':on?`hsl(${col(t)},70%,60%)`:'#3a3f4a';g.fillRect(X(x)-1,Y(y)-1,2,2)}
+ if(document.getElementById('showh').checked)for(const t of T){if(hl&&t.tag.toLowerCase()!=hl)continue;
+  g.strokeStyle=`hsl(${col(t.tag)},80%,65%)`;g.fillStyle=`hsla(${col(t.tag)},80%,60%,.12)`;g.beginPath();
+  t.hull.forEach((p,i)=>i?g.lineTo(X(p[0]),Y(p[1])):g.moveTo(X(p[0]),Y(p[1])));
+  if(t.hull.length>2)g.closePath();g.fill();g.stroke();
+  if(hl||t.n>=25){g.fillStyle='#fff';g.font='10px sans-serif';g.fillText(t.tag,X(t.cx),Y(t.cy))}}
+ if(pin){g.strokeStyle='#fff';g.lineWidth=2;g.beginPath();g.arc(X(pin[0]),Y(pin[1]),7,0,7);g.moveTo(X(pin[0])-12,Y(pin[1]));g.lineTo(X(pin[0])+12,Y(pin[1]));
+  g.moveTo(X(pin[0]),Y(pin[1])-12);g.lineTo(X(pin[0]),Y(pin[1])+12);g.stroke();g.lineWidth=1}}
+async function place(x,y){pin=[x,y];document.getElementById('xy').value=x+','+y;
+ const r=await (await fetch('/api/locate?x='+x+'&y='+y+'&'+q())).json();
+ let s='Pin ('+x+', '+y+')\nCard suffix: '+(r.text||'(none: open ground)')+'\n';
+ s+='\nInside / padded edge:\n'+(r.inside.map(i=>'  ['+i.tag+'] '+(i.core?'inside hull':i.dist+' tiles into margin')+', '+i.members+' members').join('\n')||'  -');
+ s+='\n\nNear (past margin):\n'+(r.near.slice(0,6).map(i=>'  ['+i.tag+'] '+i.dist+' tiles, '+i.members+' members').join('\n')||'  -');
+ s+='\n\nCities within 10 tiles: '+r.cities_within_10;
+ document.getElementById('res').textContent=s;draw()}
+C.onclick=e=>{const r=C.getBoundingClientRect();place(Math.round((e.clientX-r.left)/r.width*1000),Math.round(1000-(e.clientY-r.top)/r.height*1000))};
+load();
+</script>
