@@ -20,6 +20,7 @@ and the scripts used to produce them.
 | `aegis/build_reader.py` | Patches the reader into the game's Lua bundle (and re-patches after game updates) |
 | `aegis/bot.py`, `active.py`, `covert.py`, `fastmap.*`, `territory.py` | Query bot, alert mode, map snapshot, alliance territory labels |
 | `aegis/watchdog.py`, `phone_*.sh`, `deploy_phone.py` | Keep game and bot alive; host them on a spare Android phone via Termux |
+| `aegis/kvk_sync.py`, `docs/kingdom_war_schema.sql` | Kingdom War score reader; dry run by default, stores to a database YOU provide (`KVK_DB_URL`/`KVK_DB_KEY`) |
 | `aegis/*_test.py`, `test_guard.py` | Server-side bug tests and the guard self-test |
 | `vendor/lpa/` | Reader payload (`payload_reader.lua`) and map-sweep helper |
 | `dashboard/` | Local map and territory tuning page |

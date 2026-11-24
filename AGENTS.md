@@ -23,6 +23,6 @@ Goal: get the reader, guard and bot running against ONE Android device the user 
 9. Uptime: `aegis/watchdog.py` (start scripts are in `aegis/`).
 
 ## Known gaps after cleaning
-- The daily sync to an external database and the author's private tooling were removed.
+- The author's daily database sync was removed. `kvk_sync.py` stays but only dry-runs until the user supplies their own database (see its header).
 - Some docs mention `lpa_*` bridge names: the vendored copies are in `vendor/lpa/`.
 - Not everything was re-run after the cleanup: start with `test_guard.py` and fix path assumptions as they show up.
